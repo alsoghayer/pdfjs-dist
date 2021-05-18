@@ -286,15 +286,22 @@ export type getTextContentParameters = {
      * same line {@link TextItem}'s. The default value is `false`.
      */
     disableCombineTextItems: boolean;
+    /**
+     * - When true include marked
+     * content items in the items array of TextContent. The default is `false`.
+     */
+    includeMarkedContent?: boolean | undefined;
 };
 /**
  * Page text content.
  */
 export type TextContent = {
     /**
-     * - Array of {@link TextItem} objects.
+     * - Array of
+     * {@link TextItem} and {@link TextMarkedContent} objects. TextMarkedContent
+     * items are included when includeMarkedContent is true.
      */
-    items: Array<TextItem>;
+    items: Array<TextItem | TextMarkedContent>;
     /**
      * - {@link TextStyle} objects,
      * indexed by font name.
@@ -331,6 +338,21 @@ export type TextItem = {
      * - Font name used by PDF.js for converted font.
      */
     fontName: string;
+};
+/**
+ * Page text marked content part.
+ */
+export type TextMarkedContent = {
+    /**
+     * - Either 'beginMarkedContent',
+     * 'beginMarkedContentProps', or 'endMarkedContent'.
+     */
+    type: string;
+    /**
+     * - The marked content identifier. Only used for type
+     * 'beginMarkedContentProps'.
+     */
+    id: string;
 };
 /**
  * Text style.
@@ -383,14 +405,9 @@ export type RenderParameters = {
      */
     intent?: string | undefined;
     /**
-     * - Enables WebGL accelerated rendering for
-     * some operations. The default value is `false`.
-     */
-    enableWebGL?: boolean | undefined;
-    /**
      * - Whether or not interactive
      * form elements are rendered in the display layer. If so, we do not render
-     * them on the canvas as well.
+     * them on the canvas as well. The default value is `false`.
      */
     renderInteractiveForms?: boolean | undefined;
     /**
@@ -417,10 +434,11 @@ export type RenderParameters = {
      */
     background?: string | Object | undefined;
     /**
-     * - Storage for annotation
-     * data in forms.
+     * - Render stored interactive
+     * form element data, from the {@link AnnotationStorage}-instance, onto the
+     * canvas itself; useful e.g. for printing. The default value is `false`.
      */
-    annotationStorage?: AnnotationStorage | undefined;
+    includeAnnotationStorage?: boolean | undefined;
     /**
      * -
      * A promise that should resolve with an {@link OptionalContentConfig}
@@ -429,6 +447,35 @@ export type RenderParameters = {
      * states set.
      */
     optionalContentConfigPromise?: Promise<OptionalContentConfig> | undefined;
+};
+/**
+ * Structure tree node. The root node will have a role "Root".
+ */
+export type StructTreeNode = {
+    /**
+     * - Array of
+     * {@link StructTreeNode} and {@link StructTreeContent} objects.
+     */
+    children: Array<StructTreeNode | StructTreeContent>;
+    /**
+     * - element's role, already mapped if a role map exists
+     * in the PDF.
+     */
+    role: string;
+};
+/**
+ * Structure tree content.
+ */
+export type StructTreeContent = {
+    /**
+     * - either "content" for page and stream structure
+     * elements or "object" for object references.
+     */
+    type: string;
+    /**
+     * - unique id that will map to the text layer.
+     */
+    id: string;
 };
 /**
  * PDF page operator list.
@@ -820,12 +867,10 @@ export class PDFDocumentProxy {
      */
     get loadingTask(): PDFDocumentLoadingTask;
     /**
-     * @param {AnnotationStorage} annotationStorage - Storage for annotation
-     *   data in forms.
      * @returns {Promise<Uint8Array>} A promise that is resolved with a
      *   {Uint8Array} containing the full data of the saved document.
      */
-    saveDocument(annotationStorage: AnnotationStorage): Promise<Uint8Array>;
+    saveDocument(...args: any[]): Promise<Uint8Array>;
     /**
      * @returns {Promise<Array<Object> | null>} A promise that is resolved with an
      *   {Array<Object>} containing /AcroForm field data for the JS sandbox,
@@ -866,12 +911,16 @@ export class PDFDocumentProxy {
  *   whitespace with standard spaces (0x20). The default value is `false`.
  * @property {boolean} disableCombineTextItems - Do not attempt to combine
  *   same line {@link TextItem}'s. The default value is `false`.
+ * @property {boolean} [includeMarkedContent] - When true include marked
+ *   content items in the items array of TextContent. The default is `false`.
  */
 /**
  * Page text content.
  *
  * @typedef {Object} TextContent
- * @property {Array<TextItem>} items - Array of {@link TextItem} objects.
+ * @property {Array<TextItem | TextMarkedContent>} items - Array of
+ *   {@link TextItem} and {@link TextMarkedContent} objects. TextMarkedContent
+ *   items are included when includeMarkedContent is true.
  * @property {Object<string, TextStyle>} styles - {@link TextStyle} objects,
  *   indexed by font name.
  */
@@ -885,6 +934,16 @@ export class PDFDocumentProxy {
  * @property {number} width - Width in device space.
  * @property {number} height - Height in device space.
  * @property {string} fontName - Font name used by PDF.js for converted font.
+ *
+ */
+/**
+ * Page text marked content part.
+ *
+ * @typedef {Object} TextMarkedContent
+ * @property {string} type - Either 'beginMarkedContent',
+ *   'beginMarkedContentProps', or 'endMarkedContent'.
+ * @property {string} id - The marked content identifier. Only used for type
+ *   'beginMarkedContentProps'.
  */
 /**
  * Text style.
@@ -912,11 +971,9 @@ export class PDFDocumentProxy {
  *   the `PDFPageProxy.getViewport` method.
  * @property {string} [intent] - Rendering intent, can be 'display' or 'print'.
  *   The default value is 'display'.
- * @property {boolean} [enableWebGL] - Enables WebGL accelerated rendering for
- *   some operations. The default value is `false`.
  * @property {boolean} [renderInteractiveForms] - Whether or not interactive
  *   form elements are rendered in the display layer. If so, we do not render
- *   them on the canvas as well.
+ *   them on the canvas as well. The default value is `false`.
  * @property {Array<any>} [transform] - Additional transform, applied just
  *   before viewport transform.
  * @property {Object} [imageLayer] - An object that has `beginLayout`,
@@ -928,13 +985,31 @@ export class PDFDocumentProxy {
  *   <color> value, a `CanvasGradient` object (a linear or radial gradient) or
  *   a `CanvasPattern` object (a repetitive image). The default value is
  *   'rgb(255,255,255)'.
- * @property {AnnotationStorage} [annotationStorage] - Storage for annotation
- *   data in forms.
+ * @property {boolean} [includeAnnotationStorage] - Render stored interactive
+ *   form element data, from the {@link AnnotationStorage}-instance, onto the
+ *   canvas itself; useful e.g. for printing. The default value is `false`.
  * @property {Promise<OptionalContentConfig>} [optionalContentConfigPromise] -
  *   A promise that should resolve with an {@link OptionalContentConfig}
  *   created from `PDFDocumentProxy.getOptionalContentConfig`. If `null`,
  *   the configuration will be fetched automatically with the default visibility
  *   states set.
+ */
+/**
+ * Structure tree node. The root node will have a role "Root".
+ *
+ * @typedef {Object} StructTreeNode
+ * @property {Array<StructTreeNode | StructTreeContent>} children - Array of
+ *   {@link StructTreeNode} and {@link StructTreeContent} objects.
+ * @property {string} role - element's role, already mapped if a role map exists
+ * in the PDF.
+ */
+/**
+ * Structure tree content.
+ *
+ * @typedef {Object} StructTreeContent
+ * @property {string} type - either "content" for page and stream structure
+ *   elements or "object" for object references.
+ * @property {string} id - unique id that will map to the text layer.
  */
 /**
  * PDF page operator list.
@@ -1016,7 +1091,7 @@ export class PDFPageProxy {
      * @returns {RenderTask} An object that contains a promise that is
      *   resolved when the page finishes rendering.
      */
-    render({ canvasContext, viewport, intent, enableWebGL, renderInteractiveForms, transform, imageLayer, canvasFactory, background, annotationStorage, optionalContentConfigPromise, }: RenderParameters): RenderTask;
+    render({ canvasContext, viewport, intent, renderInteractiveForms, transform, imageLayer, canvasFactory, background, includeAnnotationStorage, optionalContentConfigPromise, }: RenderParameters, ...args: any[]): RenderTask;
     /**
      * @returns {Promise<PDFOperatorList>} A promise resolved with an
      *   {@link PDFOperatorList} object that represents page's operator list.
@@ -1026,7 +1101,7 @@ export class PDFPageProxy {
      * @param {getTextContentParameters} params - getTextContent parameters.
      * @returns {ReadableStream} Stream for reading text content chunks.
      */
-    streamTextContent({ normalizeWhitespace, disableCombineTextItems, }?: getTextContentParameters): ReadableStream;
+    streamTextContent({ normalizeWhitespace, disableCombineTextItems, includeMarkedContent, }?: getTextContentParameters): ReadableStream;
     /**
      * @param {getTextContentParameters} params - getTextContent parameters.
      * @returns {Promise<TextContent>} A promise that is resolved with a
@@ -1034,12 +1109,19 @@ export class PDFPageProxy {
      */
     getTextContent(params?: getTextContentParameters): Promise<TextContent>;
     /**
+     * @returns {Promise<StructTreeNode>} A promise that is resolved with a
+     *   {@link StructTreeNode} object that represents the page's structure tree,
+     *   or `null` when no structure tree is present for the current page.
+     */
+    getStructTree(): Promise<StructTreeNode>;
+    /**
      * Destroys the page object.
      * @private
      */
     private _destroy;
     _jsActionsPromise: any;
     _xfaPromise: any;
+    _structTreePromise: any;
     /**
      * Cleans up resources allocated by the page.
      *
@@ -1096,7 +1178,6 @@ export function setPDFNetworkStreamFactory(pdfNetworkStreamFactory: IPDFStreamFa
 /** @type {string} */
 export const version: string;
 import { PageViewport } from "./display_utils.js";
-import { AnnotationStorage } from "./annotation_storage.js";
 import { OptionalContentConfig } from "./optional_content_config.js";
 import { DOMCanvasFactory } from "./display_utils.js";
 import { DOMCMapReaderFactory } from "./display_utils.js";
@@ -1130,6 +1211,7 @@ import { DOMCMapReaderFactory } from "./display_utils.js";
  * @ignore
  */
 declare const PDFDocumentLoadingTask: any;
+import { AnnotationStorage } from "./annotation_storage.js";
 import { info } from "../shared/util.js";
 import { Metadata } from "./metadata.js";
 import { StatTimer } from "./display_utils.js";
