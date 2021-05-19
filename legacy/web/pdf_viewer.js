@@ -5823,7 +5823,9 @@ var PDFPageView = /*#__PURE__*/function () {
           continue;
         }
 
-        div.removeChild(node);
+        if (!node.hasAttribute("data-keepacrossrender")) {
+          div.removeChild(node);
+        }
       }
 
       div.removeAttribute("data-loaded");

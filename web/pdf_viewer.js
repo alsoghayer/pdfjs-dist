@@ -4472,7 +4472,9 @@ class PDFPageView {
         continue;
       }
 
-      div.removeChild(node);
+      if (!node.hasAttribute("data-keepacrossrender")) {
+        div.removeChild(node);
+      }
     }
 
     div.removeAttribute("data-loaded");
